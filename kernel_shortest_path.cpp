@@ -2,22 +2,23 @@
 #include <string.h>
 #include "hls_stream.h"
 #include <ap_int.h> 
+
 typedef ap_uint<512> uint512;
 
 
 #define max_nodes 905469/16
 #define q_size 64
 
-void Uint512ToStream(int &st ,int &en  , uint512 &data ,hsl::stream< ap_uint<32> , q_size> &qu ){
+void Uint512ToStream(int &st ,int &en  , uint512 &data ,hls::stream< ap_uint<32> , q_size> &qu ){
     #pragma hls pipeline 
     for(int i = st; i < en ; i++){
         #pragma hls tripcount min=1 max= 16
         #pragma hls unroll factor=8 
-        qu.write(temp1(i*32+31 ,i*32));
+        qu.write(data(i*32+31 ,i*32));
     }
 }
 
-void load_Queue(uint512 *queue , unsigned int &st , unsigned int &end , hsl::stream< ap_uint<32> , q_size> &qu ){
+void load_Queue(uint512 *queue , unsigned int &st , unsigned int &end , hls::stream< ap_uint<32> , q_size> &qu ){
     int s1 = st/16  , en1 = 16, en= end/16;
     if ( s1 * 16 + 16 > end) 
         en1 = end%16; 
@@ -77,7 +78,7 @@ extern "C"
 #pragma HLS INTERFACE s_axilite port = return bundle = control
         // bool visited[max_nodes] = {0};
         unsigned int st = 0, end = 0 , parent = 0, p_dist = 0 ,unstart, unend ;
-        hsl::stream< ap_uint<32> , q_size> qu;
+        hls::stream< ap_uint<32> , q_size> qu;
         writequeue(source , offset ,column , queue , pred, dist, end )  ; 
     TopFor:
         for (; st < end;)
@@ -96,3 +97,4 @@ extern "C"
         }
     }
 }
+

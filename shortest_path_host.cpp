@@ -2,71 +2,32 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include "xilinx_ocl.hpp"
+//#include "xilinx_ocl.hpp"
 #include <cstring>
 #include <fstream>
 #include <sys/time.h>
+#include "CL/cl_ext_xilinx.h"
+// This file is required for OpenCL C++ wrapper APIs
+#include "xcl2.hpp"
 #include <limits>
-
+#include <algorithm>
 // Xilinx OpenCL and XRT includes
 
-class ArgParser
-{
-public:
-    ArgParser(int &argc, const char **argv)
-    {
-        for (int i = 1; i < argc; ++i)
-            mTokens.push_back(std::string(argv[i]));
-    }
-    bool getCmdOption(const std::string option, std::string &value) const
-    {
-        std::vector<std::string>::const_iterator itr;
-        itr = std::find(this->mTokens.begin(), this->mTokens.end(), option);
-        if (itr != this->mTokens.end() && ++itr != this->mTokens.end())
-        {
-            value = *itr;
-            return true;
-        }
-        return false;
-    }
 
-private:
-    std::vector<std::string> mTokens;
-};
 
 int main(int argc, char *argv[])
 {
-    EventTimer et;
-    std::string xclbin_path;
-    ArgParser parser(argc, argv);
-    std::string offsetfile;
-    std::string columnfile;
-    std::string goldenfile;
-    std::string source_st; 
-    if (!parser.getCmdOption("-xclbin", xclbin_path))
-    {
-        std::cout << "ERROR:xclbin path is not set!\n";
-        return 1;
+    if (argc < 6) {
+    	std::cout << "Insufficient argument provided " << std::endl;
+    	return -1;
     }
-    if (!parser.getCmdOption("-o", offsetfile))
-    { // offset
-        std::cout << "ERROR: offset file path is not set!\n";
-        return -1;
-    }
-    if (!parser.getCmdOption("-c", columnfile))
-    { // column
-        std::cout << "ERROR: row file path is not set!\n";
-        return -1;
-    }
-    if (!parser.getCmdOption("-g", goldenfile))
-    { // golden
-        std::cout << "ERROR: row file path is not set!\n";
-        return -1;
-    }
-    if(!parser.getCmdOption("-s" ,source )){
-        std::cout << "source node missing\n"; 
-        return -1 ; 
-    }
+	std::string xclbin_path(argv[1]);
+    std::string offsetfile(argv[2]);
+    std::string columnfile(argv[3]);
+    std::string goldenfile(argv[4]);
+    std::string source_st(argv[5]);
+
+
     int numVertices , source = std::stoi(source_st);
     int numEdges;
     char line[1024] = {0};
@@ -82,7 +43,7 @@ int main(int argc, char *argv[])
     std::stringstream numOdata(line);
     numOdata >> numVertices;
     numOdata >> numVertices;
-    uint *offset32 = aligned_alloc<uint>(numVertices + 1);
+    std::vector<uint ,aligned_allocator<uint>> offset32(numVertices + 1);
     while (offsetfstream.getline(line, sizeof(line)))
     {
         std::stringstream data(line);
@@ -101,8 +62,8 @@ int main(int argc, char *argv[])
     std::stringstream numCdata(line);
     numCdata >> numEdges;
 
-    uint *column32 = aligned_alloc<uint>(numEdges);
-    float *weight32 = aligned_alloc<float>(numEdges);
+    std::vector<uint ,aligned_allocator<uint>> column32(numEdges);
+    std::vector<float  , aligned_allocator<float>> weight32(numEdges);
     while (columnfstream.getline(line, sizeof(line)))
     {
         std::stringstream data(line);
@@ -121,8 +82,8 @@ int main(int argc, char *argv[])
         }
     }
     std::cout << "id: " << id << " max out: " << max << std::endl;
-    uint *pred = aligned_alloc<uint>(((numVertices + 1023) / 1024) * 1024);
-    uint *dist = aligned_alloc<uint>(((numVertices + 1023) / 1024) * 1024);
+    std::vector<uint ,aligned_allocator<uint> >pred(((numVertices + 1023) / 1024) * 1024);
+    std::vector<uint ,aligned_allocator<uint> >dist(((numVertices + 1023) / 1024) * 1024);
     for (int i = 0; i < numVertices; i++)
     {
         dist[i] = -1;
@@ -236,3 +197,4 @@ int main(int argc, char *argv[])
     std::cout << "TEST PASSED\n" ; 
     return 0 ; 
 }
+
