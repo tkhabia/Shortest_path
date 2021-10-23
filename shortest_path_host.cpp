@@ -10,6 +10,8 @@
 // This file is required for OpenCL C++ wrapper APIs
 #include "xcl2.hpp"
 #include <limits>
+#include <sstream>
+
 #include <algorithm>
 // Xilinx OpenCL and XRT includes
 
@@ -98,31 +100,32 @@ int main(int argc, char *argv[])
     std::string devName = device.getInfo<CL_DEVICE_NAME>();
     printf("Found Device=%s\n", devName.c_str());
 
-    cl::Program::Binaries xclBins = xcl::import_binary_file(xclbin_path);
+    cl::Program::Binaries xclBins = xcl::read_binary_file(argv[1]);
+
     devices.resize(1);
-    cl::Program program(context, devices, xclBins, NULL, &fail);
-    cl::Kernel shortestPath = cl::Kernel(program, "shortestpath", &fail);
+    OCL_CHECK(err , cl::Program program(context, devices, xclBins, NULL, &err));
+    cl::Kernel shortestPath = cl::Kernel(program, "shortestpath", &err);
     std::cout << "kernel has been created" << std::endl;
     uint qu [905469];
     
     OCL_CHECK(err, cl::Buffer offset32_buff(context,
                                             CL_MEM_EXT_PTR_XILINX|CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE,
-                                            (numVertices + 1)*sizeof(uint), offset32, &err));
+                                            (numVertices + 1)*sizeof(uint), offset32.data(), &err));
 
     OCL_CHECK(err, cl::Buffer column32_buff(context,
                                             CL_MEM_EXT_PTR_XILINX|CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE,
-                                            numEdges * sizeof(uint), column32, &err));
+                                            numEdges * sizeof(uint), column32.data(), &err));
 
     OCL_CHECK(err, cl::Buffer queue_buff(context,
                                             CL_MEM_EXT_PTR_XILINX|CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE,
-                                            905469 * sizeof(uint), queue, &err));
+                                            905469 * sizeof(uint), qu, &err));
 
     OCL_CHECK(err, cl::Buffer pred_buff(context,
                                             CL_MEM_EXT_PTR_XILINX|CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE,
-                                            ((numVertices + 1023) / 1024) * 1024 * sizeof(uint), pred, &err));
+                                            ((numVertices + 1023) / 1024) * 1024 * sizeof(uint), pred.data(), &err));
     OCL_CHECK(err, cl::Buffer dist_buff(context,
                                             CL_MEM_EXT_PTR_XILINX|CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE,
-                                            ((numVertices + 1023) / 1024) * 1024 * sizeof(uint), dist , &err));
+                                            ((numVertices + 1023) / 1024) * 1024 * sizeof(uint), dist.data() , &err));
     q.enqueueMigrateMemObjects({offset32_buff, column32_buff,queue_buff,pred_buff ,dist_buff }, CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED,
     nullptr, nullptr);
     q.finish();
@@ -176,9 +179,9 @@ int main(int argc, char *argv[])
         std::string str(line);
         std::replace(str.begin(), str.end(), ',', ' ');
         std::stringstream data(str.c_str());
-        int vertex;
-        int distance;
-        int pred_golden;
+        uint vertex;
+        uint distance;
+        uint pred_golden;
         data >> vertex;
         data >> distance;
         data >> pred_golden;
