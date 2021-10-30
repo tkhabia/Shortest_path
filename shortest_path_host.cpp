@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
     std::string goldenfile(argv[4]);
     std::string source_st(argv[5]);
 
-
+    std::cout << xclbin_path << "\n" << offsetfile << "\n" << columnfile<< "\n" <<goldenfile << "\n" <<source_st<< "\n";
     int numVertices , source = std::stoi(source_st);
     int numEdges;
     char line[1024] = {0};
@@ -99,36 +99,37 @@ int main(int argc, char *argv[])
     cl::CommandQueue q(context, device, CL_QUEUE_PROFILING_ENABLE | CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE);
     std::string devName = device.getInfo<CL_DEVICE_NAME>();
     printf("Found Device=%s\n", devName.c_str());
-
-    cl::Program::Binaries xclBins = xcl::read_binary_file(argv[1]);
+    auto fileBuf = xcl::read_binary_file(xclbin_path);
+    cl::Program::Binaries xclBins {{fileBuf.data(), fileBuf.size()}};
 
     devices.resize(1);
-    OCL_CHECK(err , cl::Program program(context, devices, xclBins, NULL, &err));
+    OCL_CHECK(err , cl::Program program(context, {device}, xclBins, NULL, &err));
     cl::Kernel shortestPath = cl::Kernel(program, "shortestpath", &err);
     std::cout << "kernel has been created" << std::endl;
-    uint qu [905469];
     
-    OCL_CHECK(err, cl::Buffer offset32_buff(context,
+    OCL_CHECK(err,cl::Buffer offset32_buff =cl::Buffer(context,
                                             CL_MEM_EXT_PTR_XILINX|CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE,
                                             (numVertices + 1)*sizeof(uint), offset32.data(), &err));
 
-    OCL_CHECK(err, cl::Buffer column32_buff(context,
+    OCL_CHECK(err,cl::Buffer column32_buff = cl::Buffer(context,
                                             CL_MEM_EXT_PTR_XILINX|CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE,
                                             numEdges * sizeof(uint), column32.data(), &err));
 
-    OCL_CHECK(err, cl::Buffer queue_buff(context,
+    OCL_CHECK(err,cl::Buffer queue_buff =cl::Buffer (context,
                                             CL_MEM_EXT_PTR_XILINX|CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE,
-                                            905469 * sizeof(uint), qu, &err));
+                                            905469 * sizeof(uint), NULL, &err));
 
-    OCL_CHECK(err, cl::Buffer pred_buff(context,
+    OCL_CHECK(err,cl::Buffer pred_buff =cl::Buffer (context,
                                             CL_MEM_EXT_PTR_XILINX|CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE,
                                             ((numVertices + 1023) / 1024) * 1024 * sizeof(uint), pred.data(), &err));
-    OCL_CHECK(err, cl::Buffer dist_buff(context,
+
+    OCL_CHECK(err, cl::Buffer dist_buff = cl::Buffer (context,
                                             CL_MEM_EXT_PTR_XILINX|CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE,
                                             ((numVertices + 1023) / 1024) * 1024 * sizeof(uint), dist.data() , &err));
     q.enqueueMigrateMemObjects({offset32_buff, column32_buff,queue_buff,pred_buff ,dist_buff }, CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED,
     nullptr, nullptr);
     q.finish();
+
     std::vector<cl::Memory> ob_in;
     std::vector<cl::Memory> ob_out;
     std::vector<cl::Event> events_write(1);
@@ -200,4 +201,3 @@ int main(int argc, char *argv[])
     std::cout << "TEST PASSED\n" ; 
     return 0 ; 
 }
-
